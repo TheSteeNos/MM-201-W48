@@ -30,7 +30,7 @@ let pallet = {
     "B": ANSI.COLOR.GREEN,
     "X": ANSI.COLOR.GREEN,
     "P": ANSI.COLOR.RED,
-    "♨︎": ANSI.COLOR.CYAN,  // Correctly color the teleport pads
+    "♨︎": ANSI.COLOR.CYAN,
 }
 
 let isDirty = true;
@@ -48,8 +48,8 @@ const EXIT = "D";
 const POTION = "P";
 const ENEMY_X = "X";
 const ENEMY_B = "B";
-const TELEPORT_PAD = "T";  // Teleport pad symbol (uppercase)
-const TELEPORT_PAD_SMALL = "t";  // Teleport pad symbol (lowercase)
+const TELEPORT_PAD = "T";
+const TELEPORT_PAD_SMALL = "t";
 
 let direction = -1;
 
@@ -74,10 +74,9 @@ function loadMap(mapName) {
     let newLevelData = readMapFile(levels[mapName]);
     level = newLevelData;
     playerPos = { row: null, col: null };
-    teleportPads = [];  // Reset teleport pads list
+    teleportPads = [];
     isDirty = true;
 
-    // Find all teleport pads ("T" and "t") and store their positions
     for (let row = 0; row < level.length; row++) {
         for (let col = 0; col < level[row].length; col++) {
             if (level[row][col] === TELEPORT_PAD || level[row][col] === TELEPORT_PAD_SMALL) {
@@ -218,7 +217,7 @@ class Labyrinth {
                 }
 
                 if (symbol === TELEPORT_PAD || symbol === TELEPORT_PAD_SMALL) {
-                    symbol = "♨︎";  // Replace "T" or "t" with the teleport pad symbol
+                    symbol = "♨︎";
                 }
 
                 if (pallet[symbol] != undefined) {
