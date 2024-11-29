@@ -25,30 +25,37 @@ let level = levelData;
 
 let pallet = {
     "█": ANSI.COLOR.LIGHT_GRAY,
-    "H": ANSI.COLOR.RED,
+    "H": ANSI.COLOR.BLUE,
     "$": ANSI.COLOR.YELLOW,
     "B": ANSI.COLOR.GREEN,
-};
+    "X": ANSI.COLOR.GREEN,
+    "P": ANSI.COLOR.RED,
+    "♨︎": ANSI.COLOR.CYAN,  // Correctly color the teleport pads
+}
 
 let isDirty = true;
 
 let playerPos = {
     row: null,
     col: null,
-};
+}
 
 const EMPTY = " ";
 const HERO = "H";
 const LOOT = "$";
 const ENTRY = "d";
 const EXIT = "D";
+const POTION = "P";
+const ENEMY_X = "X";
+const ENEMY_B = "B";
+const TELEPORT_PAD = "T";  // Teleport pad symbol (uppercase)
+const TELEPORT_PAD_SMALL = "t";  // Teleport pad symbol (lowercase)
 
-let currentMapName = startingLevel;
 let direction = -1;
 
 let items = [];
 
-const THINGS = [LOOT, EMPTY];
+const THINGS = [LOOT, EMPTY, POTION, ENEMY_X, ENEMY_B, TELEPORT_PAD, TELEPORT_PAD_SMALL];
 
 let eventText = "";
 
@@ -57,9 +64,31 @@ const HP_MAX = 10;
 const playerStats = {
     hp: 8,
     cash: 0
-};
+}
+
+let currentMapName = startingLevel;
+
+let teleportPads = [];
+
+function loadMap(mapName) {
+    let newLevelData = readMapFile(levels[mapName]);
+    level = newLevelData;
+    playerPos = { row: null, col: null };
+    teleportPads = [];  // Reset teleport pads list
+    isDirty = true;
+
+    // Find all teleport pads ("T" and "t") and store their positions
+    for (let row = 0; row < level.length; row++) {
+        for (let col = 0; col < level[row].length; col++) {
+            if (level[row][col] === TELEPORT_PAD || level[row][col] === TELEPORT_PAD_SMALL) {
+                teleportPads.push({ row, col });
+            }
+        }
+    }
+}
 
 class Labyrinth {
+
     update() {
         if (playerPos.row == null) {
             for (let row = 0; row < level.length; row++) {
@@ -105,8 +134,30 @@ class Labyrinth {
                 let loot = Math.round(Math.random() * 7) + 3;
                 playerStats.cash += loot;
                 eventText = `Player gained ${loot}$`;
+            } else if (currentItem == POTION) {
+                let healAmount = Math.floor(Math.random() * 3) + 2;
+                playerStats.hp = Math.min(playerStats.hp + healAmount, HP_MAX);
+                eventText = `Player healed for ${healAmount} hearts!`;
+            } else if (currentItem == ENEMY_X) {
+                let damage = Math.floor(Math.random() * 3) + 1;
+                playerStats.hp = Math.max(playerStats.hp - damage, 0);
+                let loot = 2;
+                playerStats.cash += loot;
+                eventText = `Player took ${damage} damage from Enemy X and gained ${loot}$`;
+            } else if (currentItem == ENEMY_B) {
+                let damage = Math.floor(Math.random() * 3) + 3;
+                playerStats.hp = Math.max(playerStats.hp - damage, 0);
+                let loot = 3;
+                playerStats.cash += loot;
+                eventText = `Player took ${damage} damage from Enemy B and gained ${loot}$`;
+            } else if (currentItem == TELEPORT_PAD || currentItem == TELEPORT_PAD_SMALL) {
+                let teleportPad = teleportPads.find(pad => pad.row !== playerPos.row || pad.col !== playerPos.col);
+                if (teleportPad) {
+                    playerPos.row = teleportPad.row;
+                    playerPos.col = teleportPad.col;
+                    eventText = `Player teleported to another pad!`;
+                }
             } else if (currentItem == EXIT) {
-                // Transition to the next map
                 let nextMapKey = Object.keys(levels).find(
                     (key, index, keys) => keys[index - 1] === currentMapName
                 );
@@ -116,7 +167,6 @@ class Labyrinth {
                     return;
                 }
             } else if (currentItem == ENTRY) {
-                // Transition to the previous map
                 let previousMapKey = Object.keys(levels).find(
                     (key, index, keys) => keys[index + 1] === currentMapName
                 );
@@ -127,18 +177,22 @@ class Labyrinth {
                 }
             }
 
-            // Move the HERO
             level[playerPos.row][playerPos.col] = EMPTY;
             level[tRow][tCol] = HERO;
 
-            // Update the HERO
             playerPos.row = tRow;
             playerPos.col = tCol;
 
-            // Mark for redrawing
             isDirty = true;
         } else {
             direction *= -1;
+        }
+
+        if (playerStats.hp <= 0) {
+            eventText = "Game Over! You have died.";
+            this.draw();
+            clearInterval(gameLoop);
+            return;
         }
     }
 
@@ -147,23 +201,26 @@ class Labyrinth {
             return;
         }
         isDirty = false;
-    
+
         console.log(ANSI.CLEAR_SCREEN, ANSI.CURSOR_HOME);
-    
+
         let rendering = "";
-    
+
         rendering += renderHud();
-    
+
         for (let row = 0; row < level.length; row++) {
             let rowRendering = "";
             for (let col = 0; col < level[row].length; col++) {
                 let symbol = level[row][col];
                 
-                // Override D and d with an empty space for rendering
                 if (symbol === EXIT || symbol === ENTRY) {
                     symbol = EMPTY;
                 }
-    
+
+                if (symbol === TELEPORT_PAD || symbol === TELEPORT_PAD_SMALL) {
+                    symbol = "♨︎";  // Replace "T" or "t" with the teleport pad symbol
+                }
+
                 if (pallet[symbol] != undefined) {
                     rowRendering += pallet[symbol] + symbol + ANSI.COLOR_RESET;
                 } else {
@@ -173,32 +230,17 @@ class Labyrinth {
             rowRendering += "\n";
             rendering += rowRendering;
         }
-    
+
         console.log(rendering);
         if (eventText != "") {
             console.log(eventText);
             eventText = "";
         }
     }
-}    
-
-function loadMap(mapName) {
-    if (!mapName || !levels[mapName]) {
-        eventText = "No map to transition to.";
-        return;
-    }
-
-    levelData = readMapFile(levels[mapName]);
-    level = levelData;
-
-    playerPos.row = null;
-    playerPos.col = null;
-    isDirty = true;
-    eventText = `Loaded map: ${mapName}`;
 }
 
 function renderHud() {
-    let hpBar = `Life:[${ANSI.COLOR.RED + pad(playerStats.hp, "♥︎") + ANSI.COLOR_RESET}${ANSI.COLOR.LIGHT_GRAY + pad(HP_MAX - playerStats.hp, "♥︎") + ANSI.COLOR_RESET}]`;
+    let hpBar = `Life:[${ANSI.COLOR.RED + pad(playerStats.hp, "♥︎") + ANSI.COLOR_RESET}${ANSI.COLOR.LIGHT_GRAY + pad(HP_MAX - playerStats.hp, "♥︎") + ANSI.COLOR_RESET}]`
     let cash = `$:${playerStats.cash}`;
     return `${hpBar} ${cash}\n`;
 }
