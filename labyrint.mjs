@@ -42,6 +42,8 @@ let playerPos = {
 const EMPTY = " ";
 const HERO = "H";
 const LOOT = "$"
+const ENTRY = "d";
+const EXIT = "D";
 
 let direction = -1;
 
