@@ -1,3 +1,3 @@
 start:map1.txt
 aSharpPlace:aSharpPlace.txt
-theTreasury.txt
+theTreasury:theTreasury.txt
